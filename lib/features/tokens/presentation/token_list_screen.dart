@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web3_wallet/core/price/price_provider.dart';
 import 'package:flutter_web3_wallet/features/tokens/domain/token.dart';
 import 'package:flutter_web3_wallet/features/tokens/presentation/token_provider.dart';
 import 'token_transfer_screen.dart';
@@ -32,7 +33,10 @@ class _TokenListScreenState extends ConsumerState<TokenListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(walletTokensProvider(widget.walletAddress)),
+            onPressed: () {
+              ref.invalidate(walletTokensProvider(widget.walletAddress));
+              ref.invalidate(tokenPricesProvider(['ETH', 'USDC', 'LINK', 'WETH']));
+            },
           ),
         ],
       ),
@@ -41,13 +45,22 @@ class _TokenListScreenState extends ConsumerState<TokenListScreen> {
           _AddCustomToken(walletAddress: widget.walletAddress),
           Expanded(
             child: tokensAsync.when(
-              data: (tokens) => tokens.isEmpty
-                  ? const Center(child: Text('No tokens found'))
-                  : ListView.builder(
-                      itemCount: tokens.length,
-                      itemBuilder: (context, i) =>
-                          _TokenTile(token: tokens[i], walletAddress: widget.walletAddress),
-                    ),
+              data: (tokens) {
+                final symbols = tokens.map((t) => t.symbol.toUpperCase()).toList();
+                final pricesAsync = ref.watch(tokenPricesProvider(symbols));
+                final prices = pricesAsync.valueOrNull ?? {};
+
+                return tokens.isEmpty
+                    ? const Center(child: Text('No tokens found'))
+                    : ListView.builder(
+                        itemCount: tokens.length,
+                        itemBuilder: (context, i) => _TokenTile(
+                          token: tokens[i],
+                          walletAddress: widget.walletAddress,
+                          usdPrice: prices[tokens[i].symbol.toUpperCase()],
+                        ),
+                      );
+              },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
             ),
@@ -61,11 +74,18 @@ class _TokenListScreenState extends ConsumerState<TokenListScreen> {
 class _TokenTile extends StatelessWidget {
   final Token token;
   final String walletAddress;
+  final double? usdPrice;
 
-  const _TokenTile({required this.token, required this.walletAddress});
+  const _TokenTile({
+    required this.token,
+    required this.walletAddress,
+    this.usdPrice,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final usdValue = usdPrice != null ? token.balance * usdPrice! : null;
+
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: Colors.indigo.shade100,
@@ -75,7 +95,10 @@ class _TokenTile extends StatelessWidget {
         ),
       ),
       title: Text(token.symbol, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(token.name),
+      subtitle: usdPrice != null
+          ? Text('\$${usdPrice!.toStringAsFixed(2)} per token',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600))
+          : Text(token.name),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -84,10 +107,16 @@ class _TokenTile extends StatelessWidget {
             token.balance.toStringAsFixed(4),
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
-          Text(
-            token.symbol,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
+          if (usdValue != null)
+            Text(
+              '\$${usdValue.toStringAsFixed(2)}',
+              style: TextStyle(fontSize: 12, color: Colors.green.shade700, fontWeight: FontWeight.w500),
+            )
+          else
+            Text(
+              token.symbol,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
         ],
       ),
       onTap: () {

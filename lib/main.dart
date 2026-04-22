@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web3_wallet/core/ens/ens_provider.dart';
+import 'package:flutter_web3_wallet/core/price/price_provider.dart';
 import 'package:flutter_web3_wallet/features/hd_wallet/presentation/hd_wallet_screen.dart';
 import 'package:flutter_web3_wallet/features/my_contracts/presentation/my_contracts_screen.dart';
 import 'package:flutter_web3_wallet/features/nft/presentation/nft_grid_screen.dart';
@@ -119,6 +121,13 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         ? null
         : ref.watch(gasFeeProvider(GasParams(from: address, to: _toAddress, amount: _amount)));
 
+    final ethPriceAsync = ref.watch(tokenPricesProvider(['ETH']));
+    final ethPrice = ethPriceAsync.valueOrNull?['ETH'];
+
+    // ENS resolution for the "To Address" field
+    final ensAsync = ref.watch(ensResolveProvider(_toAddressController.text.trim()));
+    final resolvedToAddress = ensAsync.valueOrNull ?? _toAddressController.text.trim();
+
     return Scaffold(
       appBar: AppBar(title: const Text('ETH Wallet')),
       body: SingleChildScrollView(
@@ -140,6 +149,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                           '${bal.toStringAsFixed(6)} ETH',
                           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                         ),
+                        if (ethPrice != null)
+                          Text(
+                            '≈ \$${(bal * ethPrice).toStringAsFixed(2)} USD',
+                            style: TextStyle(fontSize: 15, color: Colors.green.shade700),
+                          ),
                       ],
                     ),
                     loading: () => const Center(child: CircularProgressIndicator()),
@@ -154,14 +168,24 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             TextField(
               controller: _addressController,
               decoration: const InputDecoration(
-                labelText: 'Your Wallet Address',
+                labelText: 'Your Wallet Address or ENS (e.g. vitalik.eth)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.account_circle_outlined),
               ),
               onChanged: (value) {
                 _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 400), () {
-                  ref.read(addressInputProvider.notifier).state = value;
+                _debounce = Timer(const Duration(milliseconds: 600), () {
+                  final ensService = ref.read(ensServiceProvider);
+                  if (ensService.isEnsName(value)) {
+                    // resolve ENS then update address
+                    ensService.resolve(value).then((resolved) {
+                      if (resolved != null) {
+                        ref.read(addressInputProvider.notifier).state = resolved;
+                      }
+                    });
+                  } else {
+                    ref.read(addressInputProvider.notifier).state = value;
+                  }
                 });
               },
             ),
@@ -194,10 +218,22 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 
             TextField(
               controller: _toAddressController,
-              decoration: const InputDecoration(
-                labelText: 'To Address',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.send_outlined),
+              decoration: InputDecoration(
+                labelText: 'To Address or ENS (e.g. vitalik.eth)',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.send_outlined),
+                suffixIcon: ensAsync.isLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : ensAsync.valueOrNull != null
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : null,
+                helperText: ensAsync.valueOrNull != null
+                    ? 'Resolved: ${ensAsync.valueOrNull}'
+                    : null,
+                helperStyle: const TextStyle(color: Colors.green, fontSize: 11),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -254,7 +290,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
                   ? () => ref.read(sendTxNotifierProvider.notifier).send(
                         SendTxParams(
                           privateKey: _privateKey,
-                          toAddress: _toAddress,
+                          toAddress: resolvedToAddress,
                           amount: _amount,
                         ),
                       )
