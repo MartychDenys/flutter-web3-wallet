@@ -87,7 +87,7 @@ Data flow: `UI → Notifier → UseCase → Repository → DataSource → Web3Se
 | DevToken (ERC20) | `0x6546D03C3956fC485c6519C8609b8e8de5644fBb` | [View](https://sepolia.etherscan.io/address/0x6546D03C3956fC485c6519C8609b8e8de5644fBb) |
 | DevNFT (ERC721) | `0xc6EAE7b4FEab46d2645EDd8Fff53F36E8937c5D4` | [View](https://sepolia.etherscan.io/address/0xc6EAE7b4FEab46d2645EDd8Fff53F36E8937c5D4) |
 
-Source: [web3_contracts](https://github.com/your-username/web3_contracts)
+Source: [web3-contracts](https://github.com/MartychDenys/web3-contracts)
 
 ## Setup
 
