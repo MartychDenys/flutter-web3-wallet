@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web3_wallet/core/theme/app_theme.dart';
 import 'package:flutter_web3_wallet/features/wallet/presentation/wallet_provider.dart';
 import 'package:flutter_web3_wallet/features/walletconnect/presentation/wc_provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -37,7 +38,6 @@ class _WcScreenState extends ConsumerState<WcScreen> {
     final wcState = ref.watch(wcNotifierProvider);
     final walletAddress = ref.watch(addressInputProvider);
 
-    // Show proposal dialog when pending
     ref.listen(wcNotifierProvider, (prev, next) {
       if (next.pendingProposal != null && prev?.pendingProposal == null) {
         _showProposalDialog(context, next.pendingProposal!, walletAddress);
@@ -49,7 +49,9 @@ class _WcScreenState extends ConsumerState<WcScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.error!),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             action: SnackBarAction(
               label: 'OK',
               textColor: Colors.white,
@@ -61,24 +63,22 @@ class _WcScreenState extends ConsumerState<WcScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('WalletConnect')),
+      appBar: AppBar(title: const Text('WalletConnect'), centerTitle: true),
       body: !wcState.isInitialized
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (walletAddress.isEmpty)
-                    const _WalletAddressWarning(),
+                  if (walletAddress.isEmpty) const _WalletAddressWarning(),
 
                   const SizedBox(height: 8),
 
                   _ConnectCard(
                     uriController: _uriController,
                     isLoading: wcState.isLoading,
-                    onConnect: (uri) =>
-                        ref.read(wcNotifierProvider.notifier).pair(uri),
+                    onConnect: (uri) => ref.read(wcNotifierProvider.notifier).pair(uri),
                     onScan: () => _openQrScanner(context),
                   ),
 
@@ -89,14 +89,21 @@ class _WcScreenState extends ConsumerState<WcScreen> {
                   else ...[
                     const Text(
                       'Connected dApps',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     ...wcState.activeSessions.map(
-                      (s) => _SessionTile(
-                        session: s,
-                        onDisconnect: () =>
-                            ref.read(wcNotifierProvider.notifier).disconnect(s.topic),
+                      (s) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _SessionTile(
+                          session: s,
+                          onDisconnect: () =>
+                              ref.read(wcNotifierProvider.notifier).disconnect(s.topic),
+                        ),
                       ),
                     ),
                   ],
@@ -185,71 +192,123 @@ class _ConnectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Connect to dApp',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 4),
-            const Text(
-              'Paste a WalletConnect URI or scan a QR code from any dApp',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: uriController,
-                    decoration: const InputDecoration(
-                      hintText: 'wc:...',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.link_rounded, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Connect to dApp',
+                    style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                  Text(
+                    'Paste URI or scan QR code',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: uriController,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                  decoration: const InputDecoration(
+                    hintText: 'wc:...',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () async {
-                    final data = await Clipboard.getData(Clipboard.kTextPlain);
-                    if (data?.text != null) {
-                      uriController.text = data!.text!;
-                    }
-                  },
-                  icon: const Icon(Icons.paste),
-                  tooltip: 'Paste from clipboard',
-                ),
-                IconButton(
-                  onPressed: onScan,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  tooltip: 'Scan QR',
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: isLoading
-                    ? null
-                    : () {
-                        final uri = uriController.text.trim();
-                        if (uri.isNotEmpty) onConnect(uri);
-                      },
-                icon: isLoading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.link),
-                label: Text(isLoading ? 'Connecting...' : 'Connect'),
               ),
+              const SizedBox(width: 8),
+              _IconActionButton(
+                icon: Icons.paste_outlined,
+                tooltip: 'Paste',
+                onTap: () async {
+                  final data = await Clipboard.getData(Clipboard.kTextPlain);
+                  if (data?.text != null) uriController.text = data!.text!;
+                },
+              ),
+              const SizedBox(width: 6),
+              _IconActionButton(
+                icon: Icons.qr_code_scanner_outlined,
+                tooltip: 'Scan QR',
+                onTap: onScan,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton.icon(
+              onPressed: isLoading
+                  ? null
+                  : () {
+                      final uri = uriController.text.trim();
+                      if (uri.isNotEmpty) onConnect(uri);
+                    },
+              icon: isLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.link_rounded, size: 18),
+              label: Text(isLoading ? 'Connecting...' : 'Connect'),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _IconActionButton({required this.icon, required this.tooltip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Icon(icon, size: 20, color: AppColors.textSecondary),
         ),
       ),
     );
@@ -265,22 +324,70 @@ class _SessionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final peer = session.peer.metadata;
-    return Card(
-      child: ListTile(
-        leading: peer.icons.isNotEmpty
-            ? ClipRRect(
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: peer.icons.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: Image.network(
+                      peer.icons.first,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(Icons.web_outlined, color: AppColors.textSecondary, size: 22),
+                    ),
+                  )
+                : const Icon(Icons.web_outlined, color: AppColors.textSecondary, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  peer.name,
+                  style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  peer.url,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: onDisconnect,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.error.withAlpha(25),
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(peer.icons.first, width: 40, height: 40,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.web)),
-              )
-            : const CircleAvatar(child: Icon(Icons.web)),
-        title: Text(peer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(peer.url, maxLines: 1, overflow: TextOverflow.ellipsis),
-        trailing: IconButton(
-          icon: const Icon(Icons.link_off, color: Colors.red),
-          onPressed: onDisconnect,
-          tooltip: 'Disconnect',
-        ),
+                border: Border.all(color: AppColors.error.withAlpha(60)),
+              ),
+              child: const Text(
+                'Disconnect',
+                style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -295,15 +402,26 @@ class _EmptySessionsPlaceholder extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 32),
-          Icon(Icons.link_off, size: 64, color: Colors.grey.shade300),
-          const SizedBox(height: 12),
-          const Text('No connected dApps',
-              style: TextStyle(color: Colors.grey, fontSize: 16)),
-          const SizedBox(height: 4),
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: const Icon(Icons.link_off_outlined, size: 36, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
           const Text(
-            'Connect to Uniswap, OpenSea, or any WalletConnect dApp',
+            'No connected dApps',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Connect to Uniswap, OpenSea,\nor any WalletConnect dApp',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
         ],
       ),
@@ -317,20 +435,20 @@ class _WalletAddressWarning extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange.shade200),
+        color: const Color(0xFFFF9500).withAlpha(20),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFF9500).withAlpha(60)),
       ),
       child: const Row(
         children: [
-          Icon(Icons.warning_amber, color: Colors.orange),
-          SizedBox(width: 8),
+          Icon(Icons.warning_amber_rounded, color: Color(0xFFFF9500), size: 20),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               'Enter your wallet address in the Wallet tab first',
-              style: TextStyle(color: Colors.orange, fontSize: 13),
+              style: TextStyle(color: Color(0xFFFF9500), fontSize: 13),
             ),
           ),
         ],
@@ -352,7 +470,7 @@ class _QrScannerScreenState extends State<_QrScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan QR Code')),
+      appBar: AppBar(title: const Text('Scan QR Code'), centerTitle: true),
       body: MobileScanner(
         onDetect: (capture) {
           if (_scanned) return;

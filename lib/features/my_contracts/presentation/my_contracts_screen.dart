@@ -59,6 +59,7 @@ class _MyContractsScreenState extends ConsumerState<MyContractsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Contracts'),
+        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

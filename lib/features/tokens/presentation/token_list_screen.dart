@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web3_wallet/core/price/price_provider.dart';
+import 'package:flutter_web3_wallet/core/theme/app_theme.dart';
 import 'package:flutter_web3_wallet/features/tokens/domain/token.dart';
 import 'package:flutter_web3_wallet/features/tokens/presentation/token_provider.dart';
 import 'token_transfer_screen.dart';
@@ -30,9 +31,10 @@ class _TokenListScreenState extends ConsumerState<TokenListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tokens'),
+        centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_outlined),
             onPressed: () {
               ref.invalidate(walletTokensProvider(widget.walletAddress));
               ref.invalidate(tokenPricesProvider(['ETH', 'USDC', 'LINK', 'WETH']));
@@ -46,24 +48,66 @@ class _TokenListScreenState extends ConsumerState<TokenListScreen> {
           Expanded(
             child: tokensAsync.when(
               data: (tokens) {
+                if (tokens.isEmpty) return const _EmptyTokens();
+
                 final symbols = tokens.map((t) => t.symbol.toUpperCase()).toList();
                 final pricesAsync = ref.watch(tokenPricesProvider(symbols));
                 final prices = pricesAsync.valueOrNull ?? {};
 
-                return tokens.isEmpty
-                    ? const Center(child: Text('No tokens found'))
-                    : ListView.builder(
-                        itemCount: tokens.length,
-                        itemBuilder: (context, i) => _TokenTile(
-                          token: tokens[i],
-                          walletAddress: widget.walletAddress,
-                          usdPrice: prices[tokens[i].symbol.toUpperCase()],
-                        ),
-                      );
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  itemCount: tokens.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) => _TokenTile(
+                    token: tokens[i],
+                    walletAddress: widget.walletAddress,
+                    usdPrice: prices[tokens[i].symbol.toUpperCase()],
+                  ),
+                );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text('$e', style: const TextStyle(color: AppColors.error), textAlign: TextAlign.center),
+                ),
+              ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyTokens extends StatelessWidget {
+  const _EmptyTokens();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: const Icon(Icons.token_outlined, size: 36, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No tokens found',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Enter a wallet address to see ERC20 tokens',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
         ],
       ),
@@ -85,51 +129,96 @@ class _TokenTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final usdValue = usdPrice != null ? token.balance * usdPrice! : null;
+    final symbol = token.symbol.length > 4 ? token.symbol.substring(0, 4) : token.symbol;
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.indigo.shade100,
-        child: Text(
-          token.symbol.length > 2 ? token.symbol.substring(0, 2) : token.symbol,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TokenTransferScreen(token: token, walletAddress: walletAddress),
         ),
       ),
-      title: Text(token.symbol, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: usdPrice != null
-          ? Text('\$${usdPrice!.toStringAsFixed(2)} per token',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600))
-          : Text(token.name),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            token.balance.toStringAsFixed(4),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          if (usdValue != null)
-            Text(
-              '\$${usdValue.toStringAsFixed(2)}',
-              style: TextStyle(fontSize: 12, color: Colors.green.shade700, fontWeight: FontWeight.w500),
-            )
-          else
-            Text(
-              token.symbol,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(30),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  symbol,
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    token.symbol,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    usdPrice != null
+                        ? '\$${usdPrice!.toStringAsFixed(2)} per token'
+                        : token.name,
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  token.balance.toStringAsFixed(4),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                if (usdValue != null)
+                  Text(
+                    '\$${usdValue.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: AppColors.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  )
+                else
+                  Text(
+                    token.symbol,
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => TokenTransferScreen(
-              token: token,
-              walletAddress: walletAddress,
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -155,14 +244,35 @@ class _AddCustomTokenState extends ConsumerState<_AddCustomToken> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.all(12),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
       child: Column(
         children: [
           ListTile(
-            leading: const Icon(Icons.add_circle_outline),
-            title: const Text('Add custom token'),
-            trailing: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            leading: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(30),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.add, size: 18, color: AppColors.primary),
+            ),
+            title: const Text(
+              'Add custom token',
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+            trailing: Icon(
+              _expanded ? Icons.expand_less : Icons.expand_more,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
             onTap: () => setState(() => _expanded = !_expanded),
           ),
           if (_expanded)
@@ -173,29 +283,33 @@ class _AddCustomTokenState extends ConsumerState<_AddCustomToken> {
                   Expanded(
                     child: TextField(
                       controller: _controller,
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
                       decoration: const InputDecoration(
-                        labelText: 'Contract address (0x...)',
-                        border: OutlineInputBorder(),
+                        hintText: 'Contract address (0x...)',
                         isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      final addr = _controller.text.trim();
-                      if (addr.isEmpty) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => _CustomTokenScreen(
-                            contractAddress: addr,
-                            walletAddress: widget.walletAddress,
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    height: 42,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final addr = _controller.text.trim();
+                        if (addr.isEmpty) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => _CustomTokenScreen(
+                              contractAddress: addr,
+                              walletAddress: widget.walletAddress,
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                    child: const Text('Load'),
+                        );
+                      },
+                      child: const Text('Load', style: TextStyle(fontSize: 13)),
+                    ),
                   ),
                 ],
               ),
@@ -225,20 +339,36 @@ class _CustomTokenScreen extends ConsumerWidget {
     ));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Token Info')),
+      appBar: AppBar(title: const Text('Token Info'), centerTitle: true),
       body: tokenAsync.when(
         data: (Token token) => Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Name: ${token.name}', style: const TextStyle(fontSize: 18)),
-              Text('Symbol: ${token.symbol}'),
-              Text('Decimals: ${token.decimals}'),
-              Text('Balance: ${token.balance.toStringAsFixed(6)} ${token.symbol}'),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InfoRow(label: 'Name', value: token.name),
+                    const SizedBox(height: 12),
+                    _InfoRow(label: 'Symbol', value: token.symbol),
+                    const SizedBox(height: 12),
+                    _InfoRow(label: 'Decimals', value: '${token.decimals}'),
+                    const SizedBox(height: 12),
+                    _InfoRow(label: 'Balance', value: '${token.balance.toStringAsFixed(6)} ${token.symbol}'),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
               SizedBox(
-                width: double.infinity,
+                height: 50,
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.pushReplacement(
@@ -251,15 +381,35 @@ class _CustomTokenScreen extends ConsumerWidget {
                       ),
                     );
                   },
-                  child: const Text('Transfer'),
+                  child: const Text('Transfer Token'),
                 ),
               ),
             ],
           ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error loading token: $e')),
+        error: (e, _) => Center(
+          child: Text('Error loading token: $e', style: const TextStyle(color: AppColors.error)),
+        ),
       ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+        Text(value, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 }

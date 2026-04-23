@@ -32,6 +32,7 @@ class HdWalletScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('HD Wallet'),
+        centerTitle: true,
         actions: [
           if (state.hasWallet)
             IconButton(

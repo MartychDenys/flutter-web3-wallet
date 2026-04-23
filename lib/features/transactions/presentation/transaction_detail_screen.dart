@@ -19,7 +19,7 @@ class TransactionDetailScreen extends StatelessWidget {
     final isIncoming = direction == TxDirection.incoming;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Transaction')),
+      appBar: AppBar(title: const Text('Transaction'), centerTitle: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

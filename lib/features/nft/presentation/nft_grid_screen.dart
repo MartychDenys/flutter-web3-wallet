@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_web3_wallet/core/theme/app_theme.dart';
 import 'package:flutter_web3_wallet/features/nft/domain/nft.dart';
 import 'package:flutter_web3_wallet/features/nft/presentation/nft_provider.dart';
 import 'nft_detail_screen.dart';
@@ -12,8 +13,26 @@ class NftGridScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (walletAddress.isEmpty) {
-      return const Scaffold(
-        body: Center(child: Text('Enter wallet address in the Wallet tab')),
+      return Scaffold(
+        appBar: AppBar(title: const Text('NFTs'), centerTitle: true),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.grid_view_outlined, size: 48, color: AppColors.textSecondary),
+              SizedBox(height: 16),
+              Text(
+                'No wallet connected',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Enter an address in the Wallet tab',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -22,9 +41,10 @@ class NftGridScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('NFTs'),
+        centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_outlined),
             onPressed: () => ref.invalidate(walletNftsProvider(walletAddress)),
           ),
         ],
@@ -32,18 +52,30 @@ class NftGridScreen extends ConsumerWidget {
       body: nftsAsync.when(
         data: (nfts) {
           if (nfts.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.image_not_supported_outlined, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No NFTs found', style: TextStyle(color: Colors.grey)),
-                  SizedBox(height: 8),
-                  Text(
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: const Icon(Icons.image_not_supported_outlined, size: 36, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No NFTs found',
+                    style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
                     'Mint some on Sepolia testnet\nto see them here',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   ),
                 ],
               ),
@@ -57,12 +89,12 @@ class NftGridScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: Text(
                   '${nfts.length} NFT${nfts.length != 1 ? 's' : ''}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
               ),
               Expanded(
                 child: GridView.builder(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
@@ -84,16 +116,21 @@ class NftGridScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const Icon(Icons.error_outline, size: 48, color: AppColors.error),
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Text('$e', textAlign: TextAlign.center),
+                child: Text(
+                  '$e',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
               ),
-              const SizedBox(height: 12),
-              ElevatedButton(
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
                 onPressed: () => ref.invalidate(walletNftsProvider(walletAddress)),
-                child: const Text('Retry'),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Retry'),
               ),
             ],
           ),
@@ -122,7 +159,12 @@ class _NftCard extends StatelessWidget {
           ),
         );
       },
-      child: Card(
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.cardBorder),
+        ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,25 +178,35 @@ class _NftCard extends StatelessWidget {
                       errorBuilder: (_, __, ___) => _Placeholder(nft: nft),
                       loadingBuilder: (_, child, progress) {
                         if (progress == null) return child;
-                        return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                        return Container(
+                          color: AppColors.surface,
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          ),
+                        );
                       },
                     )
                   : _Placeholder(nft: nft),
             ),
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     nft.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     nft.collectionName,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -175,16 +227,28 @@ class _Placeholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.indigo.shade50,
+      color: AppColors.surface,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.image_outlined, size: 40, color: Colors.indigo),
-            const SizedBox(height: 4),
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(30),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.image_outlined, size: 24, color: AppColors.primary),
+            ),
+            const SizedBox(height: 8),
             Text(
               '#${nft.tokenId}',
-              style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
             ),
           ],
         ),
